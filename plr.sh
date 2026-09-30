@@ -1,7 +1,14 @@
 #!/bin/bash
 
-CONFIG="/home/biqu/printer_data/config/save_variables.cfg"
-PLR_DIR="/home/biqu/printer_data/gcodes/plr"
+USER_HOME="$(getent passwd "$(id -un)" | cut -d: -f6)"
+
+if [ -z "$USER_HOME" ]; then
+    echo "PLR ERROR: Benutzerverzeichnis konnte nicht bestimmt werden."
+    exit 1
+fi
+
+CONFIG="$USER_HOME/printer_data/config/save_variables.cfg"
+PLR_DIR="$USER_HOME/printer_data/gcodes/plr"
 
 Z_HEIGHT="${1:-}"
 
