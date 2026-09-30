@@ -260,12 +260,21 @@ Detailed documentation is available in the `docs/` directory:
 
 ## License
 
-See the `LICENSE` file for licensing information.
+KlipperPLR is distributed under the GNU General Public License v3.0.
+
+See [LICENSE](LICENSE) for the full license text.
+
+The included `gcode_shell_command.py` was originally written by Eric Callahan
+and is distributed under the GNU GPLv3 license. Its original copyright and
+license notice is retained in the source file.
 
 ## Credits
 
-KlipperPLR was originally based on the Power Loss Recovery implementation published by BIGTREETECH and has since been modified and extended.
+KlipperPLR originated from the Power Loss Recovery project by
+[Yumi-Lab](https://github.com/Yumi-Lab/YUMI_PLR) and the later
+[BIGTREETECH KlipperPLR fork](https://github.com/bigtreetech/KlipperPLR).
 
-Upstream project:
+The project has since been substantially reworked and extended.
 
-https://github.com/bigtreetech/KlipperPLR
+`gcode_shell_command.py` was originally written by Eric Callahan
+and is distributed under the GNU GPLv3 license.
