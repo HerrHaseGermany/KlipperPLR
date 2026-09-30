@@ -1,51 +1,311 @@
 #!/bin/bash
-#SD_PATH=~/gcode_files
-#cat ${2} > /tmp/plrtmpA.$$
-mkdir -p {USER_HOME}/printer_data/gcodes/plr/
-filepath=$(sed -n "s/.*filepath *= *'\([^']*\)'.*/\1/p" {USER_HOME}/printer_data/config/variables.cfg)
-filepath=$(printf "$filepath")
-echo "$filepath"
-#SD_PATH=$(dirname "$filepath")
-last_file=$(sed -n "s/.*last_file *= *'\([^']*\)'.*/\1/p" {USER_HOME}/printer_data/config/variables.cfg)
-last_file=$(printf "$last_file")
-echo "$last_file"
-plr=$last_file
-echo "plr=$plr" 
-PLR_PATH={USER_HOME}/printer_data/gcodes/plr/
-#echo "$SD_PATH"
-#SD_PATH=~/gcode_files
-#cat ${SD_PATH}/${2} > {USER_HOME}/plrtmpA.$$
-cat "${filepath}" > {USER_HOME}/plrtmpA.$$
-cat {USER_HOME}/plrtmpA.$$ | sed -e '1,/Z'${1}'/ d' | sed -ne '/ Z/,$ p' | grep -m 1 ' Z' | sed -ne 's/.* Z\([^ ]*\).*/SET_KINEMATIC_POSITION Z=\1/p' > ${PLR_PATH}/"${plr}"
-#echo 'START_TEMPS' >> ${SD_PATH}/plr.gcode
-echo 'M118 START_TEMPS...' >> ${PLR_PATH}/"${plr}"
-cat {USER_HOME}/plrtmpA.$$ | sed '/ Z'${1}'/q' | sed -ne '/\(M104\|M140\|M109\|M190\|M106\)/p' >> ${PLR_PATH}/"${plr}"
-cat {USER_HOME}/plrtmpA.$$ | sed -ne '/;End of Gcode/,$ p' | tr '\n' ' ' | sed -ne 's/ ;[^ ]* //gp' | sed -ne 's/\\\\n/;/gp' | tr ';' '\n' | grep material_bed_temperature | sed -ne 's/.* = /M140 S/p' | head -1 >> ${PLR_PATH}/"${plr}"
-cat {USER_HOME}/plrtmpA.$$ | sed -ne '/;End of Gcode/,$ p' | tr '\n' ' ' | sed -ne 's/ ;[^ ]* //gp' | sed -ne 's/\\\\n/;/gp' | tr ';' '\n' | grep material_print_temperature | sed -ne 's/.* = /M104 S/p' | head -1 >> ${PLR_PATH}/"${plr}"
-cat {USER_HOME}/plrtmpA.$$ | sed -ne '/;End of Gcode/,$ p' | tr '\n' ' ' | sed -ne 's/ ;[^ ]* //gp' | sed -ne 's/\\\\n/;/gp' | tr ';' '\n' | grep material_bed_temperature | sed -ne 's/.* = /M190 S/p' | head -1 >> ${PLR_PATH}/"${plr}"
-cat {USER_HOME}/plrtmpA.$$ | sed -ne '/;End of Gcode/,$ p' | tr '\n' ' ' | sed -ne 's/ ;[^ ]* //gp' | sed -ne 's/\\\\n/;/gp' | tr ';' '\n' | grep material_print_temperature | sed -ne 's/.* = /M109 S/p' | head -1 >> ${PLR_PATH}/"${plr}"
-# cat /tmp/plrtmpA.$$ | sed -e '1,/ Z'${1}'[^0-9]*$/ d' | sed -e '/ Z/q' | tac | grep -m 1 ' E' | sed -ne 's/.* E\([^ ]*\)/G92 E\1/p' >> ${SD_PATH}/plr.gcode
-#tac /tmp/plrtmpA.$$ | sed -e '/ Z'${1}'[^0-9]*$/q' | tac | tail -n+2 | sed -e '/ Z[0-9]/ q' | tac | sed -e '/ E[0-9]/ q' | sed -ne 's/.* E\([^ ]*\)/G92 E\1/p' >> ${SD_PATH}/plr.gcode
-BG_EX=`tac {USER_HOME}/plrtmpA.$$ | sed -e '/ Z'${1}'[^0-9]*$/q' | tac | tail -n+2 | sed -e '/ Z[0-9]/ q' | tac | sed -e '/ E[0-9]/ q' | sed -ne 's/.* E\([^ ]*\)/G92 E\1/p'`
-# If we failed to match an extrusion command (allowing us to correctly set the E axis) prior to the matched layer height, then simply set the E axis to the first E value present in the resemued gcode.  This avoids extruding a huge blod on resume, and/or max extrusion errors.
-if [ "${BG_EX}" = "" ]; then
- BG_EX=`tac {USER_HOME}/plrtmpA.$$ | sed -e '/ Z'${1}'[^0-9]*$/q' | tac | tail -n+2 | sed -ne '/ Z/,$ p' | sed -e '/ E[0-9]/ q' | sed -ne 's/.* E\([^ ]*\)/G92 E\1/p'`
+
+CONFIG="/home/biqu/printer_data/config/save_variables.cfg"
+PLR_DIR="/home/biqu/printer_data/gcodes/plr"
+
+Z_HEIGHT="${1:-}"
+
+# =========================================================
+# Eingabe prüfen
+# =========================================================
+
+if [ -z "$Z_HEIGHT" ]; then
+    echo "PLR ERROR: Keine Z-Höhe übergeben."
+    exit 1
 fi
-M83=$(cat {USER_HOME}/plrtmpA.$$ | sed '/ Z'${1}'/q' | sed -ne '/\(M83\)/p')
-if [ -n "${M83}" ];then
- echo 'G92 E0' >> ${PLR_PATH}/"${plr}"
- echo ${M83} >> ${PLR_PATH}/"${plr}"
+
+
+# =========================================================
+# Druckinformationen lesen
+# =========================================================
+
+filepath=$(sed -n \
+    "s/.*filepath *= *'\([^']*\)'.*/\1/p" \
+    "$CONFIG")
+
+last_file=$(sed -n \
+    "s/.*last_file *= *'\([^']*\)'.*/\1/p" \
+    "$CONFIG")
+
+if [ -z "$filepath" ] || [ -z "$last_file" ]; then
+    echo "PLR ERROR: filepath oder last_file fehlt."
+    exit 1
+fi
+
+if [ ! -f "$filepath" ]; then
+    echo "PLR ERROR: Originaldatei nicht gefunden:"
+    echo "$filepath"
+    exit 1
+fi
+
+
+# =========================================================
+# Recovery-Verzeichnis
+# =========================================================
+
+mkdir -p "$PLR_DIR"
+
+PLR_FILE="${PLR_DIR}/${last_file}"
+
+echo "PLR Original: $filepath"
+echo "PLR Recovery: $PLR_FILE"
+echo "PLR Layer Z:  $Z_HEIGHT"
+
+
+# =========================================================
+# Recovery-Layer prüfen
+# =========================================================
+
+if ! grep -q "^;Z:${Z_HEIGHT}$" "$filepath"; then
+    echo "PLR ERROR: Layer ;Z:${Z_HEIGHT} nicht gefunden."
+    exit 1
+fi
+
+
+# =========================================================
+# G-Code bis zum Recovery-Layer
+# =========================================================
+
+BEFORE_LAYER=$(sed "/^;Z:${Z_HEIGHT}$/q" "$filepath")
+
+
+# =========================================================
+# Temperaturen bestimmen
+# =========================================================
+
+BED_TEMP=$(printf '%s\n' "$BEFORE_LAYER" |
+    grep -E '^[[:space:]]*M(140|190)[[:space:]]+S[0-9.]+' |
+    tail -1 |
+    sed -E 's/.*S([0-9.]+).*/\1/')
+
+HOTEND_TEMP=$(printf '%s\n' "$BEFORE_LAYER" |
+    grep -E '^[[:space:]]*M(104|109)[[:space:]]+S[0-9.]+' |
+    tail -1 |
+    sed -E 's/.*S([0-9.]+).*/\1/')
+
+
+# =========================================================
+# Recovery-Datei beginnen
+#
+# Z = bekannte Layerhöhe
+# Z = homed
+# X/Y = ausdrücklich unhomed
+# =========================================================
+
+cat > "$PLR_FILE" <<EOF
+SET_KINEMATIC_POSITION Z=${Z_HEIGHT} SET_HOMED=Z CLEAR_HOMED=XY
+
+M118 PLR: Recovery bei Layer Z=${Z_HEIGHT}
+
+EOF
+
+
+# =========================================================
+# Temperaturen wiederherstellen
+# =========================================================
+
+if [ -n "$BED_TEMP" ]; then
+    echo "M140 S${BED_TEMP}" >> "$PLR_FILE"
+fi
+
+if [ -n "$HOTEND_TEMP" ]; then
+    echo "M104 S${HOTEND_TEMP}" >> "$PLR_FILE"
+fi
+
+if [ -n "$BED_TEMP" ]; then
+    echo "M190 S${BED_TEMP}" >> "$PLR_FILE"
+fi
+
+if [ -n "$HOTEND_TEMP" ]; then
+    echo "M109 S${HOTEND_TEMP}" >> "$PLR_FILE"
+fi
+
+
+# =========================================================
+# Extrusionsmodus wiederherstellen
+# =========================================================
+
+if printf '%s\n' "$BEFORE_LAYER" | grep -q '^M83'; then
+
+    echo "G92 E0" >> "$PLR_FILE"
+    echo "M83" >> "$PLR_FILE"
+
 else
- echo ${BG_EX} >> ${PLR_PATH}/"${plr}"
+
+    LAST_E=$(printf '%s\n' "$BEFORE_LAYER" |
+        grep -E '^[[:space:]]*G[01].*[[:space:]]E-?[0-9.]+' |
+        tail -1 |
+        sed -E 's/.*[[:space:]]E(-?[0-9.]+).*/\1/')
+
+    if [ -n "$LAST_E" ]; then
+        echo "G92 E${LAST_E}" >> "$PLR_FILE"
+    fi
+
 fi
-echo 'G91' >> ${PLR_PATH}/"${plr}"
-echo 'G1 Z10' >> ${PLR_PATH}/"${plr}"
-echo 'G90' >> ${PLR_PATH}/"${plr}"
-echo 'G28 X Y' >> ${PLR_PATH}/"${plr}"
-echo 'G91' >> ${PLR_PATH}/"${plr}"
-echo 'G1 Z-5' >> ${PLR_PATH}/"${plr}"
-echo 'G90' >> ${PLR_PATH}/"${plr}"
-echo 'M106 S204' >> ${PLR_PATH}/"${plr}"
-# cat /tmp/plrtmpA.$$ | sed -e '1,/Z'${1}'/ d' | sed -ne '/ Z/,$ p' >> ${SD_PATH}/plr.gcode
-tac {USER_HOME}/plrtmpA.$$ | sed -e '/ Z'${1}'[^0-9]*$/q' | tac | tail -n+2 | sed -ne '/ Z/,$ p' >> ${PLR_PATH}/"${plr}"
-rm {USER_HOME}/plrtmpA.$$
+
+
+# =========================================================
+# X/Y neu homen
+# =========================================================
+
+cat >> "$PLR_FILE" <<EOF
+
+M118 PLR: Home X/Y
+
+G28 X Y
+
+M118 PLR: X/Y Homing abgeschlossen
+
+
+# =========================================================
+# Gespeichertes Bed Mesh wiederherstellen
+# =========================================================
+
+M118 PLR: Lade gespeichertes Bed Mesh
+
+BED_MESH_PROFILE LOAD=plr
+
+M118 PLR: Bed Mesh geladen
+
+
+# =========================================================
+# Zur gespeicherten Druckhöhe zurück
+# =========================================================
+
+M118 PLR: Fahre auf Z=${Z_HEIGHT}
+
+G90
+G1 Z${Z_HEIGHT} F300
+
+M118 PLR: Recovery-Position erreicht
+
+EOF
+
+
+# =========================================================
+# Original-GCode ab Recovery-Layer übernehmen
+# =========================================================
+
+awk -v target="$Z_HEIGHT" '
+
+BEGIN {
+    found = 0
+    current_z = ""
+    previous = ""
+}
+
+{
+    # -----------------------------------------------------
+    # Recovery-Layer suchen
+    # -----------------------------------------------------
+
+    if (!found) {
+
+        if (previous == ";LAYER_CHANGE" && $0 == ";Z:" target) {
+
+            print previous
+            print $0
+
+            current_z = target
+            found = 1
+            previous = ""
+
+            next
+        }
+
+        previous = $0
+        next
+    }
+
+
+    # -----------------------------------------------------
+    # Aktuelle Layerhöhe merken
+    # -----------------------------------------------------
+
+    if ($0 ~ /^;Z:[0-9.]+$/) {
+
+        current_z = $0
+        sub(/^;Z:/, "", current_z)
+
+        print
+        next
+    }
+
+
+    # -----------------------------------------------------
+    # Alte parameterlose LOG_Z reparieren
+    # -----------------------------------------------------
+
+    if ($0 ~ /^[[:space:]]*LOG_Z[[:space:]]*$/) {
+
+        if (current_z == "") {
+
+            print "M118 PLR ERROR: LOG_Z ohne bekannte Layerhoehe"
+
+        } else {
+
+            print "LOG_Z Z=" current_z
+
+        }
+
+        next
+    }
+
+
+    # -----------------------------------------------------
+    # Rest unverändert übernehmen
+    # -----------------------------------------------------
+
+    print
+}
+
+' "$filepath" >> "$PLR_FILE"
+
+
+# =========================================================
+# Sicherheitsprüfung LOG_Z
+# =========================================================
+
+BAD_LOG_Z=$(grep -cE \
+    '^[[:space:]]*LOG_Z[[:space:]]*$' \
+    "$PLR_FILE")
+
+if [ "$BAD_LOG_Z" -ne 0 ]; then
+
+    echo
+    echo "PLR ERROR:"
+    echo "$BAD_LOG_Z parameterlose LOG_Z gefunden."
+    echo "Recovery-Datei wird gelöscht."
+
+    rm -f "$PLR_FILE"
+
+    exit 1
+fi
+
+
+# =========================================================
+# Recovery-Datei prüfen
+# =========================================================
+
+if [ ! -s "$PLR_FILE" ]; then
+
+    echo "PLR ERROR: Recovery-Datei ist leer."
+
+    rm -f "$PLR_FILE"
+
+    exit 1
+fi
+
+
+# =========================================================
+# Fertig
+# =========================================================
+
+echo
+echo "PLR Recovery-Datei erfolgreich erstellt."
+echo "Layer: Z=${Z_HEIGHT}"
+echo "Datei: ${PLR_FILE}"
+echo "Parameterlose LOG_Z: 0"
+echo "Bed Mesh: plr"
+
+exit 0

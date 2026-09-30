@@ -1,1 +1,3 @@
-rm {USER_HOME}/printer_data/gcodes/plr -rf
+#!/bin/bash
+
+rm -rf /home/biqu/printer_data/gcodes/plr
