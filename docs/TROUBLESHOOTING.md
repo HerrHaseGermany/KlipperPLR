@@ -377,29 +377,9 @@ If your slicer or macros switch extrusion modes multiple times during a print, i
 
 ## Update Manager does not show KlipperPLR
 
-Verify that this file exists:
+The installer does not configure the Update Manager automatically. Follow the [README Update Manager instructions](../README.md#update-manager) to add `[update_manager KlipperPLR]` to your existing Update Manager configuration file or directly to `moonraker.conf`.
 
-```bash
-cat ~/printer_data/config/update_plr.cfg
-```
-
-It should contain a section similar to:
-
-```ini
-[update_manager KlipperPLR]
-type: git_repo
-path: /home/<user>/KlipperPLR
-origin: https://github.com/HerrHaseGermany/KlipperPLR.git
-primary_branch: main
-install_script: install.sh
-is_system_service: False
-```
-
-Then verify that `moonraker.conf` contains:
-
-```ini
-[include update_plr.cfg]
-```
+Verify that `path` points to the actual KlipperPLR repository. If the entry is in a separate file, check that `moonraker.conf` includes that file using its actual filename. Avoid duplicate KlipperPLR sections across included files.
 
 Restart Moonraker after changing its configuration.
 

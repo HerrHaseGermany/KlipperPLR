@@ -259,45 +259,6 @@ fi
 
 
 # =========================================================
-# Moonraker Update Manager
-# =========================================================
-
-MOONRAKER_CFG="$CONFIG_DIR/moonraker.conf"
-UPDATE_CFG="$CONFIG_DIR/update_plr.cfg"
-
-if [ -f "$MOONRAKER_CFG" ]; then
-
-    if ! grep -Fxq "[include update_plr.cfg]" "$MOONRAKER_CFG"; then
-        TEMP_FILE=$(mktemp)
-
-        echo "[include update_plr.cfg]" > "$TEMP_FILE"
-        echo >> "$TEMP_FILE"
-        cat "$MOONRAKER_CFG" >> "$TEMP_FILE"
-
-        mv "$TEMP_FILE" "$MOONRAKER_CFG"
-
-        echo "[include update_plr.cfg] zu moonraker.conf hinzugefügt."
-    fi
-
-    cat > "$UPDATE_CFG" <<EOF_UPDATE
-[update_manager KlipperPLR]
-type: git_repo
-path: $PROJECT_DIR
-origin: https://github.com/HerrHaseGermany/KlipperPLR.git
-primary_branch: main
-install_script: install.sh
-is_system_service: False
-EOF_UPDATE
-
-    echo "Moonraker Update Manager eingerichtet."
-
-else
-    echo "WARNUNG: moonraker.conf wurde nicht gefunden."
-    echo "Update Manager wurde nicht eingerichtet."
-fi
-
-
-# =========================================================
 # Besitzer korrigieren
 # =========================================================
 
@@ -305,9 +266,6 @@ if [ "$(id -u)" -eq 0 ]; then
     chown -R "$PLR_USER:$PLR_USER" "$PROJECT_DIR"
     chown "$PLR_USER:$PLR_USER" "$PLR_CFG"
 
-    if [ -f "$UPDATE_CFG" ]; then
-        chown "$PLR_USER:$PLR_USER" "$UPDATE_CFG"
-    fi
 fi
 
 
@@ -327,5 +285,6 @@ echo "Klipper-Konfiguration:"
 echo "  $PLR_CFG"
 echo
 echo "WICHTIG:"
-echo "Klipper und Moonraker neu starten."
+echo "Klipper neu starten."
+echo "Moonraker Update Manager bei Bedarf manuell einrichten (siehe README.md)."
 echo

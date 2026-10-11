@@ -141,47 +141,19 @@ The include is added automatically and is not duplicated when the installer is r
 
 ## Moonraker Update Manager
 
-If:
+Moonraker Update Manager integration is optional and must be configured manually. The installer does not create an Update Manager file or modify `moonraker.conf`.
 
-```text
-~/printer_data/config/moonraker.conf
-```
+Add the configuration block from the [README Update Manager instructions](../README.md#update-manager) to your existing Update Manager configuration file or directly to `moonraker.conf`. Adjust the repository path and ensure that any separate configuration file is included in `moonraker.conf`.
 
-exists, the installer creates:
+If you already have a KlipperPLR Update Manager entry, keep it and do not add a duplicate. The README also explains how to migrate an `update_plr.cfg` file created by older installers.
 
-```text
-~/printer_data/config/update_plr.cfg
-```
-
-with a Moonraker Update Manager configuration for KlipperPLR.
-
-It also adds:
-
-```ini
-[include update_plr.cfg]
-```
-
-to `moonraker.conf`.
-
-The generated Update Manager configuration uses:
-
-```ini
-[update_manager KlipperPLR]
-type: git_repo
-path: <KlipperPLR repository path>
-origin: https://github.com/HerrHaseGermany/KlipperPLR.git
-primary_branch: main
-install_script: install.sh
-is_system_service: False
-```
-
-After installation, KlipperPLR should therefore appear in the Moonraker/Mainsail Update Manager.
+Restart Moonraker after changing its configuration. KlipperPLR should then appear in the Moonraker/Mainsail Update Manager.
 
 ---
 
 ## Restart Klipper and Moonraker
 
-After installation, restart both Klipper and Moonraker.
+After installation, restart Klipper. Restart Moonraker if you configured or changed its Update Manager entry.
 
 This is required because Klipper must load:
 
@@ -195,7 +167,7 @@ and the newly generated:
 plr.cfg
 ```
 
-Moonraker must also reload its Update Manager configuration.
+Moonraker must reload its configuration after any manual Update Manager changes.
 
 You can restart the services through Mainsail or using the appropriate service commands for your system.
 
@@ -215,7 +187,7 @@ RESUME_INTERRUPTED
 G31
 ```
 
-The Mainsail Update Manager should also contain:
+If you configured the Moonraker Update Manager, Mainsail should also show:
 
 ```text
 KlipperPLR
@@ -299,7 +271,7 @@ If an update changes installation-related files or generated configuration, run:
 ./install.sh
 ```
 
-again and restart Klipper and Moonraker.
+again and restart Klipper. Restart Moonraker only if its configuration changed.
 
 ---
 
@@ -311,6 +283,8 @@ To remove KlipperPLR:
 cd ~/KlipperPLR
 ./uninstall.sh
 ```
+
+The uninstaller leaves Moonraker configuration untouched. Remove any `[update_manager KlipperPLR]` section manually and restart Moonraker after that change.
 
 See the project documentation for additional information about configuration cleanup and recovery files.
 

@@ -1,5 +1,7 @@
 # KlipperPLR
 
+Version: **1.0.1**
+
 Power Loss Recovery for Klipper.
 
 KlipperPLR adds a power-loss recovery mechanism to Klipper-based 3D printers. During a print, the current layer height and print file are stored. After an unexpected power loss or restart, KlipperPLR can generate a recovery G-code and continue the interrupted print.
@@ -47,9 +49,9 @@ chmod +x install.sh
 ./install.sh
 ```
 
-The installer configures the required Klipper integration and adds KlipperPLR to the Moonraker Update Manager.
+The installer configures the required Klipper integration. Moonraker Update Manager integration is optional and configured manually as described below.
 
-Restart Klipper and Moonraker after installation if necessary.
+Restart Klipper after installation. Restart Moonraker if you change its configuration.
 
 ## OrcaSlicer configuration
 
@@ -178,15 +180,27 @@ This should normally be called after a print has completed successfully.
 
 ## Update Manager
 
-KlipperPLR supports the Moonraker Update Manager.
+To enable updates through interfaces such as Mainsail, add the following section to your existing Update Manager configuration file or directly to `~/printer_data/config/moonraker.conf`:
 
-After installation it can be updated directly through interfaces such as Mainsail.
-
-The repository used by the Update Manager is:
-
-```text
-https://github.com/HerrHaseGermany/KlipperPLR.git
+```ini
+[update_manager KlipperPLR]
+type: git_repo
+path: /home/<user>/KlipperPLR
+origin: https://github.com/HerrHaseGermany/KlipperPLR.git
+primary_branch: main
+install_script: install.sh
+is_system_service: False
 ```
+
+Replace `path` with the absolute path to your KlipperPLR repository. You can find it by running `pwd` inside the repository.
+
+If you use a separate configuration file, make sure it is included in `moonraker.conf` using its actual filename, for example `[include update_manager.cfg]`. If that file is already included, no additional include is needed. Keep only one `[update_manager KlipperPLR]` section across your Moonraker configuration.
+
+Restart Moonraker after saving the configuration. KlipperPLR should then appear in the Update Manager.
+
+The installer and uninstaller leave your Moonraker configuration untouched and do not create an Update Manager file.
+
+If an older installer created `update_plr.cfg`, move its KlipperPLR section into your preferred configuration file, remove `[include update_plr.cfg]` from `moonraker.conf`, and delete the old file once it is no longer needed. Existing files and includes are not removed automatically.
 
 ## Uninstallation
 
@@ -198,6 +212,8 @@ cd ~/KlipperPLR
 ```
 
 The uninstaller removes the KlipperPLR integration while leaving unrelated Klipper configuration untouched.
+
+Remove the `[update_manager KlipperPLR]` section manually from your Moonraker configuration if you configured it, then restart Moonraker.
 
 ## How it works
 

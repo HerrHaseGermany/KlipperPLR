@@ -45,22 +45,10 @@ fi
 
 
 # =========================================================
-# Moonraker bereinigen
-# =========================================================
-
-MOONRAKER_CFG="$CONFIG_DIR/moonraker.conf"
-
-if [ -f "$MOONRAKER_CFG" ]; then
-    sed -i '/^[[:space:]]*\[include update_plr\.cfg\][[:space:]]*$/d' "$MOONRAKER_CFG"
-fi
-
-
-# =========================================================
 # Konfigurationsdateien löschen
 # =========================================================
 
 rm -f "$CONFIG_DIR/plr.cfg"
-rm -f "$CONFIG_DIR/update_plr.cfg"
 
 
 # =========================================================
@@ -100,5 +88,7 @@ echo
 echo "Das Git-Repository wurde NICHT gelöscht:"
 echo "  $PROJECT_DIR"
 echo
-echo "Klipper und Moonraker neu starten."
+echo "Klipper neu starten."
+echo "Einen vorhandenen Moonraker Update Manager Eintrag manuell entfernen"
+echo "und Moonraker danach neu starten."
 echo
